@@ -25,8 +25,8 @@ h1{font-size:clamp(45px,6vw,76px);line-height:1.02;letter-spacing:-.045em;margin
 <section class="wrap section"><div class="cta"><span class="k">Explore</span><h2>See what's currently available.</h2><p class="muted">Review the provider's current registration page, requirements and terms before deciding.</p><p><a class="btn offer" href="#">Check available paid surveys →</a></p></div></section></main>
 <footer class="wrap"><span>© 2026 Side Income Lab. Practical research. No hype.</span><span>Independent informational website • Affiliate-supported</span></footer>
 <script>
-const base="https://afflat3e1.com/trk/lnk/AB26B4B6-250F-4E98-BB8E-91B1EBA7F71D/?o=31078&c=918277&a=583304&k=DBCE17B76324496C7A10BA2550087977&l=36077&s1=facebook&s3=organic&s4=survey01&s5=feed";
+const cleanRoute="./go/surveys/";
 let country=(new URLSearchParams(location.search).get("country")||"za").toLowerCase();if(!["za","zw"].includes(country))country="za";
-function apply(){document.getElementById("route").textContent=country==="zw"?"Zimbabwe test route":"South Africa test route";document.querySelectorAll(".country").forEach(x=>x.classList.toggle("active",x.dataset.country===country));document.querySelectorAll(".offer").forEach(a=>{a.href=base+"&s2="+country;a.target="_blank";a.rel="sponsored nofollow noopener"})}
+function apply(){document.getElementById("route").textContent=country==="zw"?"Zimbabwe test route":"South Africa test route";document.querySelectorAll(".country").forEach(x=>x.classList.toggle("active",x.dataset.country===country));document.querySelectorAll(".offer").forEach(a=>{a.href=cleanRoute+"?country="+country;a.target="_blank";a.rel="sponsored noopener"})}
 document.querySelectorAll(".country").forEach(x=>x.onclick=()=>{country=x.dataset.country;history.replaceState(null,"","?country="+country+"#markets");apply()});apply();
 </script></body></html>
