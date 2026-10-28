@@ -22,6 +22,16 @@ export default function Admin(){
   setAuthorized(true);await refresh();setLoading(false);
  })()},[]);
  function choose(o?:Offer){setError('');setNotice('');setSelected(o?.id||'');setTitle(o?.title||'');setDescription(o?.description||'');setCategory(o?.category||'Paid Surveys');setStatus(o?.status||'draft');setAllowed(o?.countries_allowed||['ZW']);const next:Record<string,string>={};destinations.filter(d=>d.opportunity_id===o?.id).forEach(d=>next[d.country_code]=d.destination_url);setLinks(next)}
+ async function deleteDraft(){
+  const offer=offers.find(o=>o.id===selected);
+  if(!offer||offer.status!=='draft'){setError('Only draft opportunities can be deleted.');return}
+  if(!window.confirm('Permanently delete draft "'+offer.title+'"? This cannot be undone.'))return;
+  setSaving(true);setError('');setNotice('');
+  const s=db();const res=await s.from('opportunities').delete().eq('id',offer.id).eq('status','draft').select('id');
+  if(res.error){setError(res.error.message);setSaving(false);return}
+  if(!res.data?.length){setError('Draft was not deleted. Refresh and try again.');setSaving(false);return}
+  choose();await refresh();setSaving(false);setNotice('Draft deleted.');
+ }
  async function save(e:React.FormEvent){e.preventDefault();setError('');setNotice('');const s=db();
   if(!title.trim()||!category.trim()||allowed.length===0){setError('Enter title, category and at least one country.');return}
   for(const country of allowed){const url=(links[country]||'').trim();if(status==='published'&&!url){setError('Published offers require a destination for '+country);return}if(url){let parsed:URL;try{parsed=new URL(url)}catch{setError('Invalid URL for '+country);return}if(parsed.protocol!=='https:'||!['afflat3e1.com','afflat3e3.com'].includes(parsed.hostname)){setError('Destination domain not permitted for '+country);return}}}
@@ -54,6 +64,6 @@ export default function Admin(){
  </div><h3>Countries and tracking links</h3>{countries.map(c=><div key={c} className="admin-country"><label><input type="checkbox" checked={allowed.includes(c)} onChange={e=>setAllowed(p=>e.target.checked?[...p,c]:p.filter(x=>x!==c))}/> {c}</label>{allowed.includes(c)&&<input style={{width:'100%'}} placeholder={'HTTPS affiliate destination for '+c} value={links[c]||''} onChange={e=>setLinks(p=>({...p,[c]:e.target.value}))}/>}</div>)}
  <p className="muted">Use approved MaxBounty raw tracking URLs. Members see branded /go/ links. Published listings without a destination cannot redirect for that country.</p>
  {error&&<p role="alert" className="error">{error}</p>}{notice&&<p role="status">{notice}</p>}
- <button className="btn" type="submit" disabled={saving}>{saving?"Saving…":"Save opportunity"}</button></form></>}
+ <div className="actions"><button className="btn" type="submit" disabled={saving}>{saving?"Saving…":"Save opportunity"}</button>{selected&&offers.find(o=>o.id===selected)?.status==="draft"&&<button type="button" className="btn alt" disabled={saving} onClick={deleteDraft}>Delete draft</button>}</div></form></>}
  </main>
 }
