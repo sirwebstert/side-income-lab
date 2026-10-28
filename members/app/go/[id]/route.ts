@@ -27,6 +27,11 @@ export async function GET(request: NextRequest, {params}: {params: Promise<{id:s
  let target:URL;
  try{target=new URL(destination.destination_url)}catch{return new NextResponse('Invalid destination',{status:502})}
  if(target.protocol!=='https:'||!['afflat3e1.com','afflat3e3.com'].includes(target.hostname)) return new NextResponse('Destination not permitted',{status:403});
+ // Analytics is best-effort: never break a valid affiliate redirect when logging fails.
+ try {
+  const {error:clickError}=await supabase.rpc('record_offer_click',{p_opportunity_id:id,p_country_code:country});
+  if(clickError) console.error('Offer click recording failed',clickError.code);
+ } catch {console.error('Offer click recording unavailable')}
  const response=NextResponse.redirect(target,302);
  response.headers.set('Cache-Control','no-store, private');
  response.headers.set('Referrer-Policy','no-referrer');
