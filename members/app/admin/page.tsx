@@ -4,16 +4,18 @@ import Link from 'next/link';
 import {db} from '@/lib/supabase';
 type Offer={id:string;title:string;description:string;category:string;countries_allowed:string[];status:string};
 type Destination={opportunity_id:string;country_code:string;destination_url:string};
+type ClickSummary={opportunity_id:string;country_code:string;clicks:number;unique_members:number};
 const countries=['ZW','ZA','GB','US','CA'];
 export default function Admin(){
  const [authorized,setAuthorized]=useState(false),[loading,setLoading]=useState(true),[error,setError]=useState(''),[notice,setNotice]=useState('');
- const [offers,setOffers]=useState<Offer[]>([]),[destinations,setDestinations]=useState<Destination[]>([]),[members,setMembers]=useState<number|null>(null);
+ const [offers,setOffers]=useState<Offer[]>([]),[destinations,setDestinations]=useState<Destination[]>([]),[members,setMembers]=useState<number|null>(null),[clicks,setClicks]=useState<ClickSummary[]>([]),[analyticsError,setAnalyticsError]=useState('');
  const [saving,setSaving]=useState(false);const [selected,setSelected]=useState(''),[title,setTitle]=useState(''),[description,setDescription]=useState(''),[category,setCategory]=useState('Paid Surveys'),[status,setStatus]=useState('draft'),[allowed,setAllowed]=useState<string[]>(['ZW']),[links,setLinks]=useState<Record<string,string>>({});
  async function refresh(){
   const s=db();
-  const [a,b,c]=await Promise.all([s.from('opportunities').select('id,title,description,category,countries_allowed,status').order('created_at',{ascending:false}),s.from('opportunity_destinations').select('opportunity_id,country_code,destination_url'),s.rpc('admin_member_count')]);
+  const [a,b,c,d]=await Promise.all([s.from('opportunities').select('id,title,description,category,countries_allowed,status').order('created_at',{ascending:false}),s.from('opportunity_destinations').select('opportunity_id,country_code,destination_url'),s.rpc('admin_member_count'),s.rpc('admin_offer_click_summary')]);
   if(a.error||b.error){setError(a.error?.message||b.error?.message||'Failed to load');return}
   setOffers(a.data||[]);setDestinations(b.data||[]);if(!c.error)setMembers(c.data);
+  if(d.error)setAnalyticsError('Click analytics unavailable: '+d.error.message);else{setClicks(d.data||[]);setAnalyticsError('')}
  }
  useEffect(()=>{(async()=>{
   const s=db();const {data:{user}}=await s.auth.getUser();if(!user){location.replace('/login');return}
@@ -55,6 +57,7 @@ export default function Admin(){
  <section className="hero"><span className="tag">Administration</span><h1>Opportunity <span style={{color:'#27e5ad'}}>Control.</span></h1><p className="sub">Manage listings and destinations. All writes require administrator permissions.</p></section>
  {loading?<p>Checking permissions…</p>:!authorized?<div className="panel"><h2>Access denied</h2><p>This account is not an administrator. Access must be granted by the project owner.</p></div>:<>
  <div className="panel"><h2>Overview</h2><p>{offers.length} listings · {offers.filter(x=>x.status==='published').length} published · {members===null?'Member count unavailable':members+' registered members'}</p></div>
+ <div className="panel" style={{marginTop:20}}><h2>Offer engagement</h2><p className="sub">Recorded outbound clicks are not conversions or commissions.</p><p><strong>{clicks.reduce((n,x)=>n+Number(x.clicks),0)}</strong> recorded clicks · <strong>{new Set(clicks.map(x=>x.country_code)).size}</strong> countries with activity</p>{analyticsError&&<p role="alert" className="error">{analyticsError}</p>}{clicks.length>0?<div className="admin-analytics">{clicks.map(x=><div className="admin-country" key={x.opportunity_id+":"+x.country_code}><strong>{offers.find(o=>o.id===x.opportunity_id)?.title||"Opportunity"}</strong> · {x.country_code}<p>{x.clicks} clicks · {x.unique_members} unique members</p></div>)}</div>:!analyticsError&&<p className="muted">No clicks recorded yet.</p>}<button className="btn alt" type="button" onClick={refresh}>Refresh analytics</button></div>
  <div className="panel" style={{marginTop:20}}><h2>Listings</h2><div className="actions"><button className="btn" onClick={()=>choose()}>+ New opportunity</button>{offers.map(o=><button key={o.id} className="btn alt" onClick={()=>choose(o)}>{o.title} ({o.status})</button>)}</div></div>
  <form className="panel admin-form" style={{marginTop:20}} onSubmit={save}><h2>{selected?'Edit opportunity':'New opportunity'}</h2>
  <div className="admin-fields"><label>Title<input required value={title} onChange={e=>setTitle(e.target.value)}/></label>
