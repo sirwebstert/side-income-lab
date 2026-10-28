@@ -2,12 +2,20 @@
 import {useEffect,useState} from 'react';
 import Link from 'next/link';
 import {db} from '@/lib/supabase';
-type Offer={id:string;title:string;description:string;category:string;countries_allowed:string[];status:string;destination_url:string|null};
+type Offer={id:string;title:string;description:string;category:string;countries_allowed:string[];status:string;destination_url?:string|null};
 export default function Dashboard(){
  const [user,setUser]=useState<string|null>(null),[userId,setUserId]=useState(''),[country,setCountry]=useState('ZA'),[offers,setOffers]=useState<Offer[]>([]),[saved,setSaved]=useState<string[]>([]),[loading,setLoading]=useState(true),[error,setError]=useState(''),[filter,setFilter]=useState('All');
  useEffect(()=>{const s=db();(async()=>{const {data:{user},error:authError}=await s.auth.getUser();if(authError||!user){location.replace('/login');return}setUser(user.email||'Member');setUserId(user.id);const {data:p}=await s.from('profiles').select('country_code').eq('user_id',user.id).maybeSingle();const c=p?.country_code||user.user_metadata.country_code||'ZA';setCountry(c);
- const [res,bookmarks]=await Promise.all([s.from('opportunities').select('id,title,description,category,countries_allowed,status,destination_url').eq('status','published').contains('countries_allowed',[c]).order('created_at',{ascending:false}),s.from('saved_opportunities').select('opportunity_id').eq('user_id',user.id)]);
- if(res.error)setError(res.error.message);else setOffers(res.data||[]);
+ const [res,bookmarks]=await Promise.all([s.from('opportunities').select('id,title,description,category,countries_allowed,status').eq('status','published').contains('countries_allowed',[c]).order('created_at',{ascending:false}),s.from('saved_opportunities').select('opportunity_id').eq('user_id',user.id)]);
+ if(res.error)setError(res.error.message);else {
+ const ids=(res.data||[]).map(o=>o.id);
+ if(ids.length){
+ const destinations=await s.from('opportunity_destinations').select('opportunity_id,destination_url').eq('country_code',c).in('opportunity_id',ids);
+ if(destinations.error)setError(destinations.error.message);
+ const links=new Map((destinations.data||[]).map(d=>[d.opportunity_id,d.destination_url]));
+ setOffers((res.data||[]).map(o=>({...o,destination_url:links.get(o.id)||null})));
+ }else setOffers([]);
+ }
  if(!bookmarks.error)setSaved((bookmarks.data||[]).map(x=>x.opportunity_id));setLoading(false)})()},[]);
  async function toggle(id:string){if(!userId)return;const s=db();const isSaved=saved.includes(id);setError('');const res=isSaved?await s.from('saved_opportunities').delete().eq('user_id',userId).eq('opportunity_id',id):await s.from('saved_opportunities').insert({user_id:userId,opportunity_id:id});if(res.error)setError(res.error.message);else setSaved(prev=>isSaved?prev.filter(x=>x!==id):[...prev,id])}
  async function logout(){await db().auth.signOut();location.replace('/login')}
